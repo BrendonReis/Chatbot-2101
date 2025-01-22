@@ -95,6 +95,25 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const [confirmationOpen, setConfirmationOpen] = useState(false);
 	const [selectAll, setSelectAll] = useState(false);
 	const messageInputRef = useRef();
+	const [filters, setFilters] = useState({
+		name: "",
+		startDate: "",
+		endDate: "",
+	});
+
+	const fetchContacts = async () => {
+		try {
+			const response = await api.get("/contacts/list", { params: filters });
+			setContacts(response.data);
+		} catch (error) {
+			console.error("Error fetching contacts:", error);
+		}
+	};
+
+	const handleFilterChange = (e) => {
+		const { name, value } = e.target;
+		setFilters((prev) => ({ ...prev, [name]: value }));
+	};
 
 	useEffect(() => {
 		if (contactId && contacts.length > 0) {
@@ -299,6 +318,38 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 										variant="outlined"
 										fullWidth
 									>
+										<div>
+											<div>
+												<input
+													type="text"
+													name="name"
+													placeholder="Search by name"
+													value={filters.name}
+													onChange={handleFilterChange}
+												/>
+												<input
+													type="date"
+													name="startDate"
+													value={filters.startDate}
+													onChange={handleFilterChange}
+												/>
+												<input
+													type="date"
+													name="endDate"
+													value={filters.endDate}
+													onChange={handleFilterChange}
+												/>
+												<button onClick={fetchContacts}>Search</button>
+											</div>
+
+											<ul>
+												{contacts.map((contact) => (
+													<li key={contact.id}>
+														{contact.name} - {contact.createdAt}
+													</li>
+												))}
+											</ul>
+										</div>
 										<FormControlLabel
 											control={
 												<Checkbox

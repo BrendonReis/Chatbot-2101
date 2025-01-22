@@ -184,10 +184,10 @@ export const remove = async (
 };
 
 export const list = async (req: Request, res: Response): Promise<Response> => {
-  const { name } = req.query as unknown as SearchContactParams;
+  const { name, startDate, endDate } = req.query as unknown as SearchContactParams;
   const { companyId } = req.user;
 
-  const contacts = await SimpleListService({ name, companyId });
+  const contacts = await SimpleListService({ name, companyId, startDate, endDate });
 
   return res.json(contacts);
 };

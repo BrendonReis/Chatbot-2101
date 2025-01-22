@@ -5,27 +5,31 @@ import { FindOptions, Op } from "sequelize";
 export interface SearchContactParams {
   companyId: string | number;
   name?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
-const SimpleListService = async ({ name, companyId }: SearchContactParams): Promise<Contact[]> => {
-  let options: FindOptions = {
-    order: [
-      ['name', 'ASC']
-    ]
-  }
+const SimpleListService = async ({ name, companyId, startDate, endDate }: SearchContactParams): Promise<Contact[]> => {
+  const whereClause: any = {
+    companyId
+  };
 
   if (name) {
-    options.where = {
-      name: {
-        [Op.like]: `%${name}%`
-      }
-    }
+    whereClause.name = {
+      [Op.like]: `%${name}%`
+    };
   }
 
-  options.where = {
-    ...options.where,
-    companyId
+  if (startDate && endDate) {
+    whereClause.createdAt = {
+      [Op.between]: [new Date(startDate), new Date(endDate)]
+    };
   }
+
+  const options: FindOptions = {
+    where: whereClause,
+    order: [['name', 'ASC']],
+  };
 
   const contacts = await Contact.findAll(options);
 

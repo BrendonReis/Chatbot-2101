@@ -986,6 +986,7 @@ export const verifyMessage = async (
       const apiUrl = 'http://195.179.226.24:8085/protocolo/saveticket';
       const apiBody = {
         protocol,
+        ticketId: ticket.id,
         contactId: contact.id,
         status: ticket.status,
         userId: ticket.userId,
