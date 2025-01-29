@@ -465,9 +465,7 @@ const downloadMedia = async (msg: proto.IWebMessageInfo) => {
     msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
     msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
 
-  if (!mineType)
-    console.log(msg)
-
+  if (!mineType)    
   if (!filename) {
     const ext = mineType.mimetype.split("/")[1].split(";")[0];
     filename = `${new Date().getTime()}.${ext}`;
@@ -847,7 +845,6 @@ const verifyMediaMessage = async (
 
   const body = getBodyMessage(msg);
 
-
   const messageData = {
     id: msg.key.id,
     ticketId: ticket.id,
@@ -863,6 +860,8 @@ const verifyMediaMessage = async (
     participant: msg.key.participant,
     dataJson: JSON.stringify(msg),
   };
+
+  // Atualiza a última mensagem do ticket
   await ticket.update({
     lastMessage: body || media.filename,
   });
@@ -871,6 +870,26 @@ const verifyMediaMessage = async (
     messageData,
     companyId: ticket.companyId,
   });
+
+  // Gerenciar "typebot" apenas se a mensagem NÃO partir de você
+  if (!msg.key.fromMe) {
+    if (!(ticket as any).typebotActive) {
+      // Ativar o typebot
+      (ticket as any).typebotActive = true;
+      console.log("Typebot ativado!");
+    }
+
+    // Resetar o temporizador de desativação
+    if ((ticket as any).typebotTimeout) {
+      clearTimeout((ticket as any).typebotTimeout);
+    }
+    (ticket as any).typebotTimeout = setTimeout(() => {
+      (ticket as any).typebotActive = false;
+      console.log("Typebot desativado!");
+    }, 10 * 60 * 1000); // 10 minutos
+  } else {
+    console.log("Mensagem enviada por você, typebot não ativado.");
+  }
 
   if (!msg.key.fromMe && ticket.status === "closed") {
     await ticket.update({ status: "autoassigned" });
@@ -903,6 +922,8 @@ const verifyMediaMessage = async (
   return newMessage;
 };
 
+let isQueueUpdated = false;
+
 export const verifyMessage = async (
   msg: proto.IWebMessageInfo,
   ticket: Ticket,
@@ -913,8 +934,14 @@ export const verifyMessage = async (
   const body = getBodyMessage(msg);
   const isEdited = getTypeMessage(msg) === 'editedMessage';
 
+  const timestamp = msg.messageTimestamp != null
+    ? new Date(Number(msg.messageTimestamp) * 1000)
+    : new Date();
+
   const messageData = {
-    id: isEdited ? msg?.message?.editedMessage?.message?.protocolMessage?.key?.id : msg.key.id,
+    id: isEdited
+      ? msg?.message?.editedMessage?.message?.protocolMessage?.key?.id
+      : msg.key.id,
     ticketId: ticket.id,
     contactId: msg.key.fromMe ? undefined : contact.id,
     body,
@@ -927,21 +954,46 @@ export const verifyMessage = async (
     participant: msg.key.participant,
     dataJson: JSON.stringify(msg),
     isEdited: isEdited,
+    timestamp
   };
 
-  console.log('Conteúdo do bodys:', body);
+  logger.info(`Conteúdo do body: ${body}`);
+  logger.info(`Conteúdo de fromMe: ${messageData.fromMe}`);
+  console.log('Timestamp da mensagem:' , timestamp);
+  
+
+  let isFirstBotMessage = false;
+
+  if (msg.key.fromMe) {
+    const oldestMessage = await Message.findOne({
+      where: { ticketId: ticket.id }
+    });
+
+    if (!oldestMessage || messageData.timestamp.getTime() === timestamp.getTime()) {
+      isFirstBotMessage = true;
+      logger.info('O bot enviou a primeira mensagem, alterando a fila para "open".');
+    } else {
+      logger.info('A primeira mensagem não foi enviada pelo bot.');
+    }
+  }
+
+  if (isFirstBotMessage && ticket.status !== 'open') {
+    await ticket.update({
+      status: 'open'
+    });
+  }
 
   const regex = /O protocolo do seu atendimento é: (\w+)/;
   const match = body.match(regex);
 
   const regexFinalizar = /Agradecemos\./;
   const matchFinalizar = body.match(regexFinalizar);
-  
+
   if (matchFinalizar) {
-    const closedTickets: number[] = [];
-  
+    const closedTickets = [];
+
     console.log('Frase encontrada:', matchFinalizar);
-  
+
     const apiBody = {
       contactId: contact.id,
       status: ticket.status,
@@ -953,9 +1005,9 @@ export const verifyMessage = async (
     };
 
     console.log('Dados do cliente:', JSON.stringify(apiBody));
-  
+
     await ticket.update({
-      status: "pending",
+      status: 'pending',
       promptId: null,
       integrationId: null,
       useIntegration: false,
@@ -964,14 +1016,13 @@ export const verifyMessage = async (
       queueId: null,
       chatbot: null,
       queueOptionId: null,
-      userId: null,
+      userId: null
     });
-  
-    logger.info(`Ticket ${ticket.id} encerrado por fim de atendimento.`);
-  
+
+    console.log(`Ticket ${ticket.id} encerrado por fim de atendimento.`);
+
     closedTickets.push(ticket.id);
   }
-  
 
   if (match) {
     const protocol = match[1];
@@ -995,7 +1046,7 @@ export const verifyMessage = async (
         queueId: ticket.queueId,
         whatsappId: ticket.whatsappId
       };
-    
+
       console.log('Corpo da requisição:', JSON.stringify(apiBody));
 
       const response = await fetch(apiUrl, {
@@ -1009,41 +1060,52 @@ export const verifyMessage = async (
       const responseBody = await response.text();
 
       if (response.ok) {
-        console.log('Requisição POST bem-sucedida');
+        logger.info('Requisição POST bem-sucedida');
       } else {
-        console.log('Erro na requisição POST', response.status, response.statusText, responseBody);
+        console.log(
+          'Erro na requisição POST',
+          response.status,
+          response.statusText,
+          responseBody
+        );
       }
     } catch (error) {
-      console.error('Erro ao atualizar o ticket ou fazer a requisição POST:', error);
+      console.error(
+        'Erro ao atualizar o ticket ou fazer a requisição POST:',
+        error
+      );
     }
   } else {
-    console.log('Protocolo não encontrado no corpo da mensagem.');
+    logger.info('Protocolo não encontrado no corpo da mensagem.');
 
     try {
       await ticket.update({
         lastMessage: body
       });
     } catch (error) {
-      console.error('Erro ao atualizar o ticket:', error);
+      logger.error('Erro ao atualizar o ticket:', error);
     }
   }
 
   await CreateMessageService({ messageData, companyId: ticket.companyId });
 
-  if (!msg.key.fromMe && ticket.status === "closed") {
-    await ticket.update({ status: "autoassigned" });
+  if (!msg.key.fromMe && ticket.status === 'closed') {
+    console.log('Mensagem veio do bot?', msg.key.fromMe);
+    console.log('Status do ticket:', ticket.status);
+
+    await ticket.update({ status: 'autoassigned' });
     await ticket.reload({
       include: [
-        { model: Queue, as: "queue" },
-        { model: User, as: "user" },
-        { model: Contact, as: "contact" }
+        { model: Queue, as: 'queue' },
+        { model: User, as: 'user' },
+        { model: Contact, as: 'contact' }
       ]
     });
 
     io.to(`company-${ticket.companyId}-closed`)
       .to(`queue-${ticket.queueId}-closed`)
       .emit(`company-${ticket.companyId}-ticket`, {
-        action: "delete",
+        action: 'delete',
         ticket,
         ticketId: ticket.id
       });
@@ -1051,7 +1113,7 @@ export const verifyMessage = async (
     io.to(`company-${ticket.companyId}-${ticket.status}`)
       .to(`queue-${ticket.queueId}-${ticket.status}`)
       .emit(`company-${ticket.companyId}-ticket`, {
-        action: "update",
+        action: 'update',
         ticket,
         ticketId: ticket.id
       });
@@ -1441,7 +1503,7 @@ export const handleRating = async (
 
 const handleChartbot = async (ticket: Ticket, msg: WAMessage, wbot: Session, dontReadTheFirstQuestion: boolean = false) => {
 
-  console.log("Iniciando handleChartbot");
+  logger.info("Iniciando handleChartbot");
 
   const queue = await Queue.findByPk(ticket.queueId, {
     include: [

@@ -465,7 +465,7 @@ const Contacts = () => {
             disabled={selectedContacts.length === 0}
             onClick={handleDeleteSelected}
           >
-            Excluir Selecionados
+            Excluir
           </Button>
 
         </MainHeaderButtonsWrapper>
