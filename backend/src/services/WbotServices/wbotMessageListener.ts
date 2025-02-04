@@ -465,13 +465,13 @@ const downloadMedia = async (msg: proto.IWebMessageInfo) => {
     msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
     msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
 
-  if (!mineType)    
-  if (!filename) {
-    const ext = mineType.mimetype.split("/")[1].split(";")[0];
-    filename = `${new Date().getTime()}.${ext}`;
-  } else {
-    filename = `${new Date().getTime()}_${filename}`;
-  }
+  if (!mineType)
+    if (!filename) {
+      const ext = mineType.mimetype.split("/")[1].split(";")[0];
+      filename = `${new Date().getTime()}.${ext}`;
+    } else {
+      filename = `${new Date().getTime()}_${filename}`;
+    }
 
   const media = {
     data: buffer,
@@ -922,7 +922,7 @@ const verifyMediaMessage = async (
   return newMessage;
 };
 
-let isQueueUpdated = false;
+let botFirstMessageSent = false;
 
 export const verifyMessage = async (
   msg: proto.IWebMessageInfo,
@@ -930,6 +930,14 @@ export const verifyMessage = async (
   contact: Contact
 ) => {
   const io = getIO();
+
+  if (ticket.status === 'open') {
+    if (botFirstMessageSent) {
+      console.log(`🚫 Ticket ${ticket.id} já foi processado. Ignorando novas mensagens.`);
+      return;
+    }
+  }
+
   const quotedMsg = await verifyQuotedMessage(msg);
   const body = getBodyMessage(msg);
   const isEdited = getTypeMessage(msg) === 'editedMessage';
@@ -959,28 +967,20 @@ export const verifyMessage = async (
 
   logger.info(`Conteúdo do body: ${body}`);
   logger.info(`Conteúdo de fromMe: ${messageData.fromMe}`);
-  console.log('Timestamp da mensagem:' , timestamp);
-  
+  console.log('Timestamp da mensagem:', timestamp);
 
-  let isFirstBotMessage = false;
 
-  if (msg.key.fromMe) {
-    const oldestMessage = await Message.findOne({
-      where: { ticketId: ticket.id }
+  if (ticket.status === 'closed' && messageData.fromMe) {
+    const lastBotMessage = await Message.findOne({
+      where: { ticketId: ticket.id, fromMe: true },
+      order: [['timestamp', 'DESC']]
     });
 
-    if (!oldestMessage || messageData.timestamp.getTime() === timestamp.getTime()) {
-      isFirstBotMessage = true;
-      logger.info('O bot enviou a primeira mensagem, alterando a fila para "open".');
-    } else {
-      logger.info('A primeira mensagem não foi enviada pelo bot.');
-    }
-  }
+    logger.info(`Última mensagem do bot: ${JSON.stringify(lastBotMessage)}`);
 
-  if (isFirstBotMessage && ticket.status !== 'open') {
-    await ticket.update({
-      status: 'open'
-    });
+    botFirstMessageSent = true;
+    logger.info('O bot enviou a primeira mensagem, alterando a fila para open.');
+    await ticket.update({ status: 'open' });
   }
 
   const regex = /O protocolo do seu atendimento é: (\w+)/;
@@ -1093,30 +1093,34 @@ export const verifyMessage = async (
     console.log('Mensagem veio do bot?', msg.key.fromMe);
     console.log('Status do ticket:', ticket.status);
 
-    await ticket.update({ status: 'autoassigned' });
-    await ticket.reload({
-      include: [
-        { model: Queue, as: 'queue' },
-        { model: User, as: 'user' },
-        { model: Contact, as: 'contact' }
-      ]
-    });
 
-    io.to(`company-${ticket.companyId}-closed`)
-      .to(`queue-${ticket.queueId}-closed`)
-      .emit(`company-${ticket.companyId}-ticket`, {
-        action: 'delete',
-        ticket,
-        ticketId: ticket.id
+    if (ticket.queueId === null) {
+      await ticket.update({ status: 'autoassigned' });
+
+      await ticket.reload({
+        include: [
+          { model: Queue, as: 'queue' },
+          { model: User, as: 'user' },
+          { model: Contact, as: 'contact' }
+        ]
       });
 
-    io.to(`company-${ticket.companyId}-${ticket.status}`)
-      .to(`queue-${ticket.queueId}-${ticket.status}`)
-      .emit(`company-${ticket.companyId}-ticket`, {
-        action: 'update',
-        ticket,
-        ticketId: ticket.id
-      });
+      io.to(`company-${ticket.companyId}-closed`)
+        .to(`queue-${ticket.queueId}-closed`)
+        .emit(`company-${ticket.companyId}-ticket`, {
+          action: 'delete',
+          ticket,
+          ticketId: ticket.id
+        });
+
+      io.to(`company-${ticket.companyId}-${ticket.status}`)
+        .to(`queue-${ticket.queueId}-${ticket.status}`)
+        .emit(`company-${ticket.companyId}-ticket`, {
+          action: 'update',
+          ticket,
+          ticketId: ticket.id
+        });
+    }
   }
 };
 
@@ -1244,13 +1248,14 @@ const verifyQueue = async (
       })
       // return;
     }
-
-    await UpdateTicketService({
-      ticketData: { queueId: firstQueue.id, chatbot, status: "autoassigned" },
-      ticketId: ticket.id,
-      companyId: ticket.companyId,
-    });
-
+    if (ticket.status != 'open') {
+      await UpdateTicketService({
+        ticketData: { queueId: firstQueue.id, chatbot, status: "autoassigned" },
+        ticketId: ticket.id,
+        companyId: ticket.companyId,
+      });
+    }
+    
     return;
   }
 
@@ -1826,13 +1831,13 @@ export const handleMessageIntegration = async (
       }
     }
 
-  } else if (queueIntegration.type === "typebot") {
+  } else if (queueIntegration.type === "typebot" && ticket.status != 'open' && ticket.status != 'pending') {
     console.log("entrou no typebot")
     // await typebots(ticket, msg, wbot, queueIntegration);
     await typebotListener({ ticket, msg, wbot, typebot: queueIntegration });
 
   }
-}
+};
 
 const handleMessage = async (
   msg: proto.IWebMessageInfo,

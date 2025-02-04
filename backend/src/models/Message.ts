@@ -70,6 +70,9 @@ class Message extends Model<Message> {
   @Column(DataType.DATE(6))
   updatedAt: Date;
 
+  @Column(DataType.DATE(6))
+  timestamp: Date;
+
   @ForeignKey(() => Message)
   @Column
   quotedMsgId: string;
