@@ -120,7 +120,7 @@ const CampaignModal = ({
   const [messageTab, setMessageTab] = useState(0);
   const [attachment, setAttachment] = useState(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
-  const [campaignEditable, setCampaignEditable] = useState(true);
+  const [campaignEditable, setCampaignEditable] = useState(false);
   const attachmentFile = useRef(null);
   const [tagLists, setTagLists] = useState([]);
 
@@ -536,7 +536,7 @@ const CampaignModal = ({
                       disabled={!campaignEditable}
                     />
                   </Grid>
-                  <Grid xs={12} md={4} item>
+                  <Grid xs={12} md={4} item> 
                   <FormControl
                       variant="outlined"
                       margin="dense"

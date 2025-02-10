@@ -153,10 +153,10 @@ const MainListItems = (props) => {
   const [searchParam] = useState("");
   const [chats, dispatch] = useReducer(reducer, []);
   const { getPlanCompany } = usePlans();
-  
+
   const [version, setVersion] = useState(false);
-  
-  
+
+
   const { getVersion } = useVersion();
 
   const socketManager = useContext(SocketContext);
@@ -169,7 +169,7 @@ const MainListItems = (props) => {
     fetchVersion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
- 
+
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -301,14 +301,14 @@ const MainListItems = (props) => {
         primary={i18n.t("mainDrawer.listItems.tickets")}
         icon={<WhatsAppIcon />}
       />
-	  
-	{showKanban && (  
-	  <ListItemLink
-        to="/kanban"
-        primary={i18n.t("Kanban")}
-        icon={<TableChartIcon />}
-      />
-	  )}
+
+      {showKanban && (
+        <ListItemLink
+          to="/kanban"
+          primary={i18n.t("Kanban")}
+          icon={<TableChartIcon />}
+        />
+      )}
 
 
       <ListItemLink
@@ -316,8 +316,8 @@ const MainListItems = (props) => {
         primary={i18n.t("mainDrawer.listItems.quickMessages")}
         icon={<FlashOnIcon />}
       />
-	  
-	  <ListItemLink
+
+      <ListItemLink
         to="/todolist"
         primary={i18n.t("Tarefas")}
         icon={<BorderColorIcon />}
@@ -357,6 +357,60 @@ const MainListItems = (props) => {
         icon={<HelpOutlineIcon />}
       />
 
+      {showCampaigns && (
+        <>
+          <ListItem
+            button
+            onClick={() => setOpenCampaignSubmenu((prev) => !prev)}
+          >
+            <ListItemIcon>
+              <EventAvailableIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary={i18n.t("mainDrawer.listItems.campaigns")}
+            />
+            {openCampaignSubmenu ? (
+              <ExpandLessIcon />
+            ) : (
+              <ExpandMoreIcon />
+            )}
+          </ListItem>
+          <Collapse
+            style={{ paddingLeft: 15 }}
+            in={openCampaignSubmenu}
+            timeout="auto"
+            unmountOnExit
+          >
+            <List component="div" disablePadding>
+              <ListItem onClick={() => history.push("/campaigns")} button>
+                <ListItemIcon>
+                  <ListIcon />
+                </ListItemIcon>
+                <ListItemText primary="Listagem" />
+              </ListItem>
+              <ListItem
+                onClick={() => history.push("/contact-lists")}
+                button
+              >
+                <ListItemIcon>
+                  <PeopleIcon />
+                </ListItemIcon>
+                <ListItemText primary="Listas de Contatos" />
+              </ListItem>
+              <ListItem
+                onClick={() => history.push("/campaigns-config")}
+                button
+              >
+                <ListItemIcon>
+                  <SettingsOutlinedIcon />
+                </ListItemIcon>
+                <ListItemText primary="Configurações" />
+              </ListItem>
+            </List>
+          </Collapse>
+        </>
+      )}
+
       <Can
         role={user.profile}
         perform="drawer-admin-items:view"
@@ -375,60 +429,7 @@ const MainListItems = (props) => {
               color="inherit">
               {i18n.t("mainDrawer.listItems.administration")}
             </ListSubheader>
-			
-            {showCampaigns && (
-              <>
-                <ListItem
-                  button
-                  onClick={() => setOpenCampaignSubmenu((prev) => !prev)}
-                >
-                  <ListItemIcon>
-                    <EventAvailableIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={i18n.t("mainDrawer.listItems.campaigns")}
-                  />
-                  {openCampaignSubmenu ? (
-                    <ExpandLessIcon />
-                  ) : (
-                    <ExpandMoreIcon />
-                  )}
-                </ListItem>
-                <Collapse
-                  style={{ paddingLeft: 15 }}
-                  in={openCampaignSubmenu}
-                  timeout="auto"
-                  unmountOnExit
-                >
-                  <List component="div" disablePadding>
-                    <ListItem onClick={() => history.push("/campaigns")} button>
-                      <ListItemIcon>
-                        <ListIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Listagem" />
-                    </ListItem>
-                    <ListItem
-                      onClick={() => history.push("/contact-lists")}
-                      button
-                    >
-                      <ListItemIcon>
-                        <PeopleIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Listas de Contatos" />
-                    </ListItem>
-                    <ListItem
-                      onClick={() => history.push("/campaigns-config")}
-                      button
-                    >
-                      <ListItemIcon>
-                        <SettingsOutlinedIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Configurações" />
-                    </ListItem>
-                  </List>
-                </Collapse>
-              </>
-            )}
+
             {user.super && (
               <ListItemLink
                 to="/announcements"
@@ -495,8 +496,8 @@ const MainListItems = (props) => {
               primary={i18n.t("mainDrawer.listItems.settings")}
               icon={<SettingsOutlinedIcon />}
             />
-			
-			
+
+
             {!collapsed && <React.Fragment>
               <Divider />
               {/* 
@@ -511,7 +512,7 @@ const MainListItems = (props) => {
               </Typography>
             </React.Fragment>
             }
-			
+
           </>
         )}
       />

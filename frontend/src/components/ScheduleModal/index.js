@@ -104,15 +104,20 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 	const fetchContacts = async () => {
 		try {
 			const response = await api.get("/contacts/list", { params: filters });
-			setContacts(response.data);
+			const contactList = response.data;
+			setContacts(contactList);
 		} catch (error) {
 			console.error("Error fetching contacts:", error);
+			toastError(error);
 		}
 	};
 
 	const handleFilterChange = (e) => {
 		const { name, value } = e.target;
-		setFilters((prev) => ({ ...prev, [name]: value }));
+		setFilters((prev) => ({
+			...prev,
+			[name]: value || undefined,
+		}));
 	};
 
 	useEffect(() => {
@@ -160,17 +165,18 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 
 	useEffect(() => {
 		if (selectAll) {
-			setSchedule(prevState => ({
+			setSchedule((prevState) => ({
 				...prevState,
-				contactId: contacts.map(contact => contact.id)
+				contactId: contacts.map((contact) => contact.id),
 			}));
 		} else {
-			setSchedule(prevState => ({
+			setSchedule((prevState) => ({
 				...prevState,
-				contactId: []
+				contactId: [],
 			}));
 		}
 	}, [selectAll, contacts]);
+
 
 	const handleClose = () => {
 		onClose();
@@ -314,62 +320,81 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 						<Form>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
-									<FormControl
-										variant="outlined"
-										fullWidth
-									>
-										<div>
-											<div>
-												<input
-													type="text"
+									<FormControl variant="outlined" fullWidth>
+										<Grid container spacing={2} direction="column">
+											{/* Campo Nome ocupa a linha inteira */}
+											<Grid item xs={12}>
+												<TextField
+													variant="outlined"
+													label="Nome"
 													name="name"
-													placeholder="Search by name"
 													value={filters.name}
 													onChange={handleFilterChange}
+													fullWidth
+													margin="dense"
 												/>
-												<input
-													type="date"
+											</Grid>
+										</Grid>
+
+										<Grid item container spacing={2}>
+											<Grid item xs={6}>
+												<TextField
+													variant="outlined"
+													label="Data Inicial"
+													type="datetime-local"
 													name="startDate"
 													value={filters.startDate}
 													onChange={handleFilterChange}
+													InputLabelProps={{ shrink: true }}
+													fullWidth
+													margin="dense"
 												/>
-												<input
-													type="date"
+											</Grid>
+											<Grid item xs={6}>
+												<TextField
+													variant="outlined"
+													label="Data Final"
+													type="datetime-local"
 													name="endDate"
 													value={filters.endDate}
 													onChange={handleFilterChange}
+													InputLabelProps={{ shrink: true }}
+													fullWidth
+													margin="dense"
 												/>
-												<button onClick={fetchContacts}>Search</button>
-											</div>
+											</Grid>
+										</Grid>
 
-											<ul>
-												{contacts.map((contact) => (
-													<li key={contact.id}>
-														{contact.name} - {contact.createdAt}
-													</li>
-												))}
-											</ul>
-										</div>
+										<Button variant="contained" color="primary" onClick={fetchContacts} style={{ marginTop: '8px' }}>
+											Pesquisar
+										</Button>
+
 										<FormControlLabel
 											control={
 												<Checkbox
 													checked={selectAll}
-													onChange={() => setSelectAll(!selectAll)}
+													onChange={() => {
+														setSelectAll(!selectAll);
+														setSchedule((prevState) => ({
+															...prevState,
+															contactId: !selectAll ? contacts.map((contact) => contact.id) : [],
+														}));
+													}}
 													color="primary"
 												/>
 											}
 											label="Selecionar Todos"
 										/>
+
 										<Autocomplete
 											multiple
 											options={contacts}
-											value={contacts.filter(contact =>
+											value={contacts.filter((contact) =>
 												Array.isArray(schedule.contactId) && schedule.contactId.includes(contact.id)
-											)
-											}
+											)}
 											onChange={(e, selectedContacts) => {
-												const contactIds = selectedContacts.map(contact => contact.id);
-												setSchedule(prevState => ({ ...prevState, contactId: contactIds }));
+												const contactIds = selectedContacts.map((contact) => contact.id);
+												setSchedule((prevState) => ({ ...prevState, contactId: contactIds }));
 											}}
 											getOptionLabel={(option) => option.name}
 											renderOption={(option, { selected }) => (
@@ -378,11 +403,10 @@ const ScheduleModal = ({ open, onClose, scheduleId, contactId, cleanContact, rel
 													{option.name}
 												</>
 											)}
-											renderInput={(params) => (
-												<TextField {...params} variant="outlined" placeholder="Contatos" />
-											)}
+											renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Contatos" />}
 										/>
 									</FormControl>
+
 								</div>
 								<br />
 								<div className={classes.multFieldLine}>

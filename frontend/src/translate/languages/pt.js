@@ -173,8 +173,8 @@ const messages = {
         },
         buttons: {
           import: "Importar Contatos",
-          importExcel: "Importar Contatos - Planilha",
-          add: "Adicionar Contato",
+          importExcel: "Importar Planilha",
+          add: "Adicionar Contatos",
           export: "Exportar Contatos",
           delete: "Excluir Todos Contatos"
         },

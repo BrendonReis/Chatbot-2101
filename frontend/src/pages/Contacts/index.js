@@ -18,6 +18,7 @@ import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SearchIcon from "@material-ui/icons/Search";
 import TextField from "@material-ui/core/TextField";
 import InputAdornment from "@material-ui/core/InputAdornment";
+import { Box, Typography } from '@mui/material';
 
 import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
@@ -118,6 +119,9 @@ const Contacts = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [hasMore, setHasMore] = useState(false);
 
+  const [isImporting, setIsImporting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
 
@@ -129,6 +133,15 @@ const Contacts = () => {
         ? prev.filter((id) => id !== contactId)
         : [...prev, contactId]
     );
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setIsImporting(true);
+      setConfirmOpen(true);
+    }
   };
 
   const handleSelectAll = () => {
@@ -147,7 +160,9 @@ const Contacts = () => {
           api.delete(`/contacts/${contactId}`)
         )
       );
-      toast.success("Contatos selecionados foram deletados com sucesso.");
+      toast.success("Contatos selecionados foram deletados com sucesso.", {
+        onClose: () => window.location.reload()
+      });
       setSelectedContacts([]);
       setSelectAll(false);
       setSearchParam("");
@@ -281,8 +296,11 @@ const Contacts = () => {
     }
   };
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
+  const handleFileUpload = async (input) => {
+    const file = input && input.target && input.target.files
+      ? input.target.files[0]
+      : input;
+
     if (!file) return;
 
     const fileExtension = file.name.split('.').pop().toLowerCase();
@@ -311,7 +329,7 @@ const Contacts = () => {
                   .then((response) => {
                     toast.success("Contatos do WhatsApp importados com sucesso!", {
                       onClose: () => window.location.reload()
-                    });
+                    }); 
                     dispatch({ type: "LOAD_CONTACTS", payload: mappedData });
                   })
                   .catch((err) => {
@@ -355,7 +373,9 @@ const Contacts = () => {
 
             api.post("/contacts/import", { contacts: mappedData })
               .then((response) => {
-                toast.success("Contatos da planilha importados com sucesso!");
+                toast.success("Contatos da planilha importados com sucesso!", {
+                  onClose: () => window.location.reload()
+                });
                 dispatch({ type: "LOAD_CONTACTS", payload: mappedData });
               })
               .catch((err) => {
@@ -390,25 +410,45 @@ const Contacts = () => {
         aria-labelledby="form-dialog-title"
         contactId={selectedContactId}
       ></ContactModal>
+
       <ConfirmationModal
         title={
           deletingContact
-            ? `${i18n.t("contacts.confirmationModal.deleteTitle")} ${deletingContact.name
-            }?`
-            : `${i18n.t("contacts.confirmationModal.importTitlte")}`
+            ? `${i18n.t("Confirmar Exclusão")} ${deletingContact.name}?`
+            : selectedContacts.length > 0
+              ? i18n.t("Confirmar Exclusão")
+              : isImporting
+                ? i18n.t("Confirmar Importação")
+                : ""
         }
         open={confirmOpen}
-        onClose={setConfirmOpen}
-        onConfirm={(e) =>
-          deletingContact
-            ? handleDeleteContact(deletingContact.id)
-            : handleimportContact()
-        }
+        onClose={() => {
+          setConfirmOpen(false);
+          setIsImporting(false);
+          setSelectedFile(null);
+        }}
+        onConfirm={() => {
+          if (deletingContact) {
+            handleDeleteContact(deletingContact.id);
+          } else if (selectedContacts.length > 0) {
+            handleDeleteSelected();
+          } else if (isImporting && selectedFile) {
+            handleFileUpload(selectedFile);
+          }
+          setConfirmOpen(false);
+          setIsImporting(false);
+        }}
       >
         {deletingContact
-          ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
-          : `${i18n.t("contacts.confirmationModal.importMessage")}`}
+          ? i18n.t("Tem certeza que deseja excluir o contato selecionado?")
+          : selectedContacts.length > 0
+            ? i18n.t("Tem certeza que deseja excluir os contatos selecionados?")
+            : isImporting
+              ? i18n.t("Tem certeza que deseja importar os contatos?")
+              : ""
+        }
       </ConfirmationModal>
+
       <MainHeader>
         <Title>{i18n.t("contacts.title")}</Title>
         <MainHeaderButtonsWrapper>
@@ -425,23 +465,22 @@ const Contacts = () => {
               ),
             }}
           />
-          <Button
-            variant="contained"
-            color="primary"
-            component="label"
-          >
+          <Button variant="contained" color="primary" component="label">
             {i18n.t("contacts.buttons.importExcel")}
             <input
               type="file"
               hidden
               accept=".xlsx, .xls, .csv"
-              onChange={handleFileUpload}
+              onChange={handleFileChange}
             />
           </Button>
           <Button
             variant="contained"
             color="primary"
-            onClick={(e) => setConfirmOpen(true)}
+            onClick={() => {
+              setIsImporting(true);
+              setConfirmOpen(true);
+            }}
           >
             {i18n.t("contacts.buttons.import")}
           </Button>
@@ -463,7 +502,7 @@ const Contacts = () => {
             variant="contained"
             color="secondary"
             disabled={selectedContacts.length === 0}
-            onClick={handleDeleteSelected}
+            onClick={() => setConfirmOpen(true)}
           >
             Excluir
           </Button>
@@ -485,7 +524,11 @@ const Contacts = () => {
                   onChange={handleSelectAll}
                 />
               </TableCell>
-              <TableCell>{i18n.t("contacts.table.name")}</TableCell>
+              <TableCell>
+                <Box display="flex" flexDirection="row" alignItems="center" paddingLeft="50px">
+                  {i18n.t("contacts.table.name")}
+                </Box>
+              </TableCell>
               <TableCell align="center">
                 {i18n.t("contacts.table.whatsapp")}
               </TableCell>
@@ -501,12 +544,27 @@ const Contacts = () => {
             <>
               {contacts.map((contact) => (
                 <TableRow key={contact.id}>
-                  <TableCell style={{ paddingRight: 0 }}>
-                    {<Avatar src={contact.profilePicUrl} />}
+                  <TableCell padding="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedContacts.includes(contact.id)}
+                      onChange={() => handleSelectContact(contact.id)}
+                    />
                   </TableCell>
-                  <TableCell>{contact.name}</TableCell>
-                  <TableCell align="center">{contact.number}</TableCell>
-                  <TableCell align="center">{contact.email}</TableCell>
+                  <TableCell style={{ paddingRight: 0 }}>
+                    <Box display="flex" flexDirection="row" alignItems="center">
+                      <Avatar src={contact.profilePicUrl} />
+                      <Typography variant="body1" style={{ marginLeft: 8, fontSize: '0.875rem' }}>
+                        {contact.name}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2">{contact.number}</Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2">{contact.email}</Typography>
+                  </TableCell>
                   <TableCell align="center">
                     <IconButton
                       size="small"

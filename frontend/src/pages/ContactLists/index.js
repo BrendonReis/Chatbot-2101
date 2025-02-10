@@ -102,19 +102,8 @@ const ContactLists = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [contactLists, dispatch] = useReducer(reducer, []);
-  const [selectAll, setSelectAll] = useState(false);
 
-  const [selectedContacts, setSelectedContacts] = useState([]);
   const socketManager = useContext(SocketContext);
-
-  const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedContacts([]);
-    } else {
-      setSelectedContacts(contactLists.map((contactList) => contactList.id));
-    }
-    setSelectAll(!selectAll);
-  };
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -212,7 +201,8 @@ const ContactLists = () => {
       <ConfirmationModal
         title={
           deletingContactList &&
-          `${i18n.t("contactLists.confirmationModal.deleteTitle")} ${deletingContactList.name
+          `${i18n.t("contactLists.confirmationModal.deleteTitle")} ${
+            deletingContactList.name
           }?`
         }
         open={confirmModalOpen}
@@ -272,13 +262,6 @@ const ContactLists = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" >
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
               <TableCell align="center">
                 {i18n.t("contactLists.table.name")}
               </TableCell>
@@ -294,22 +277,6 @@ const ContactLists = () => {
             <>
               {contactLists.map((contactList) => (
                 <TableRow key={contactList.id}>
-                  {/* Adicione este <TableCell> para o checkbox de cada contato */}
-                  <TableCell padding="checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedContacts.includes(contactList.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedContacts((prev) => [...prev, contactList.id]);
-                        } else {
-                          setSelectedContacts((prev) =>
-                            prev.filter((id) => id !== contactList.id)
-                          );
-                        }
-                      }}
-                    />
-                  </TableCell>
                   <TableCell align="center">{contactList.name}</TableCell>
                   <TableCell align="center">
                     {contactList.contactsCount || 0}
@@ -350,7 +317,6 @@ const ContactLists = () => {
               {loading && <TableRowSkeleton columns={3} />}
             </>
           </TableBody>
-
         </Table>
       </Paper>
     </MainContainer>
